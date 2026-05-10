@@ -1,135 +1,32 @@
+---
+author: "Kyle Jones"
+date_published: "June 27, 2025"
+date_exported_from_medium: "November 10, 2025"
+canonical_link: "https://medium.com/@kyle-t-jones/why-data-engineering-in-oil-and-gas-is-hard-c22478fd5e67"
+---
+
 # Why Data Engineering in Oil and Gas is Hard Data engineering in oil and gas is difficult because core operational
 systems were never built to speak the same language. Each domain ---...
 
 ### **Why Data Engineering in Oil and Gas is Hard**
-Data engineering in oil and gas is difficult because core operational
-systems were never built to speak the same language. Each
-domain --- drilling, completions, production, land,
-maintenance --- adopted its own tools, its own schemas, and its own
-logic. The problems are not abstract. They show up in specific ways that
-make even basic analysis unreliable until they are addressed.
+Data engineering in oil and gas is difficult because core operational systems were never built to speak the same language. Each domain --- drilling, completions, production, land, maintenance --- adopted its own tools, its own schemas, and its own logic. The problems are not abstract. They show up in specific ways that make even basic analysis unreliable until they are addressed.
 
+Start with identity. There is no universal well ID. A single horizontal well might be recorded in a drilling database as `OK-031N-066W-1423H`, while the SCADA historian logs it as `0310661423H`, and the SAP maintenance system calls it `WELL-1423`. In completions spreadsheets, it might show up as `1423-H`, and in production records, as `Well_1423_1L`. None of these names match directly. API numbers help, but even they can be formatted differently---with or without dashes, with extra digits, or truncated to county-level identifiers. Without a curated mapping table or fuzzy join logic, it becomes impossible to correlate events across domains. You may think you're analyzing a single well, when in fact the data reflects two or three.
 
-<figcaption>Photo by <a
-href="https://unsplash.com/@archivesalberta?utm_source=medium&amp;utm_medium=referral"
-class="markup--anchor markup--figure-anchor"
-data-href="https://unsplash.com/@archivesalberta?utm_source=medium&amp;utm_medium=referral"
-rel="photo-creator noopener" target="_blank">Provincial Archives of
-Alberta</a> on <a
-href="https://unsplash.com?utm_source=medium&amp;utm_medium=referral"
-class="markup--anchor markup--figure-anchor"
-data-href="https://unsplash.com?utm_source=medium&amp;utm_medium=referral"
-rel="photo-source noopener" target="_blank">Unsplash</a>; Some very
-dapper drillers</figcaption>
+Time introduces another layer of inconsistency. Consider the spud date. The drilling contractor may log the date they first moved the rig onto location. The operator's report might list the day the bit hit surface. In WITSML files, the same well could show a `spudDate` tied to the start of intermediate casing. Regulatory filings, often submitted weeks later, may use the permit date instead. A completion engineer looking at fiber data might interpret "start of well" as the beginning of stage pumping. In one North Dakota dataset, the spud date differed by as much as 19 days depending on the source. This breaks longitudinal modeling---especially when trying to align production with drilling and completions activity.
 
+Depth measurements also diverge. Most logs record measured depth (MD) from the Kelly Bushing (KB), the rotating platform above the rig floor. But temperature and pressure gauges might report depths from ground level (GL) or sea level (MSL). Fiber-optic sensors installed along the casing may give depth as distance along the cable, which can stretch and shift. Even within wireline logs, true vertical depth (TVD) and measured depth can differ by hundreds of feet in long-lateral wells. In one example, perforation intervals were incorrectly matched to the gamma ray curve because one dataset referenced GL while another used KB. The mismatch led engineers to believe they had perforated in the lower Bakken shale, when they were actually in the Three Forks.
 
-Start with identity. There is no universal well ID. A single horizontal
-well might be recorded in a drilling database as
-`OK-031N-066W-1423H`, while the SCADA
-historian logs it as `0310661423H`, and
-the SAP maintenance system calls it `WELL-1423`. In completions spreadsheets, it might show up as
-`1423-H`, and in production records, as
-`Well_1423_1L`. None of these names match
-directly. API numbers help, but even they can be formatted
-differently---with or without dashes, with extra digits, or truncated to
-county-level identifiers. Without a curated mapping table or fuzzy join
-logic, it becomes impossible to correlate events across domains. You may
-think you're analyzing a single well, when in fact the data reflects two
-or three.
+Mnemonics cause constant trouble. Each vendor defines its own shorthand for well log curves. Gamma ray might appear as `GR`, `GAPI`, `GAM`, or `Gamma`. Resistivity can be `RT`, `RESD`, `RDEP`, or `AT90`. Even within a single vendor's files, different tool runs use different mnemonics depending on the sensor configuration. Engineers often script their pipelines to expect one format, then receive another. In one completions project, a customer had six different formats for rate of penetration: `ROP`, `ROP5S`, `ROP_1FT`, `RateOfPen`, `DRATE`, and `ROP_AVG`. Each was sampled differently. Each had different units. No file declared the unit in metadata. This makes parsing automatic logs impossible without a lookup table, and it makes machine learning models brittle---failing silently when expected fields are missing or mislabeled.
 
-Time introduces another layer of inconsistency. Consider the spud date.
-The drilling contractor may log the date they first moved the rig onto
-location. The operator's report might list the day the bit hit surface.
-In WITSML files, the same well could show a `spudDate` tied to the start of intermediate casing. Regulatory
-filings, often submitted weeks later, may use the permit date instead. A
-completion engineer looking at fiber data might interpret "start of
-well" as the beginning of stage pumping. In one North Dakota dataset,
-the spud date differed by as much as 19 days depending on the source.
-This breaks longitudinal modeling---especially when trying to align
-production with drilling and completions activity.
+Sensor data brings volume and velocity, but not clarity. SCADA systems may log pressure, flow, and temperature every second, but rarely use consistent tags or units. One gathering system reported flow in `bbl/h`, another in `Mcf/d`, and a third in `L/min`. Worse, the sensors reset when equipment is swapped, and the tags get reused. Time zones are often wrong. Timestamps can be stored as local time without daylight saving correction. Fiber-optic data is worse: a single DAS stage may generate 5--10 TB of raw data, sampled at millisecond resolution, with little annotation. Without reliable metadata---stage start and stop times, tool depths, surface pressure---the signal is uninterpretable.
 
-Depth measurements also diverge. Most logs record measured depth (MD)
-from the Kelly Bushing (KB), the rotating platform above the rig floor.
-But temperature and pressure gauges might report depths from ground
-level (GL) or sea level (MSL). Fiber-optic sensors installed along the
-casing may give depth as distance along the cable, which can stretch and
-shift. Even within wireline logs, true vertical depth (TVD) and measured
-depth can differ by hundreds of feet in long-lateral wells. In one
-example, perforation intervals were incorrectly matched to the gamma ray
-curve because one dataset referenced GL while another used KB. The
-mismatch led engineers to believe they had perforated in the lower
-Bakken shale, when they were actually in the Three Forks.
+Unstructured data remains a blind spot. Daily drilling reports (DDRs), completion job summaries, pump logs, and engineering memos often live as PDFs, scanned images, or Excel files with inconsistent formatting. These documents contain high-value insights --- delays, failures, changes in plan --- but are rarely integrated into data platforms. NLP tools can extract text, but without reference tables or standardized templates, it's hard to map what you find. In one project, over 30 percent of pump downtime events were documented only in daily reports, not in the historian or the maintenance system.
 
-Mnemonics cause constant trouble. Each vendor defines its own shorthand
-for well log curves. Gamma ray might appear as `GR`, `GAPI`,
-`GAM`, or `Gamma`. Resistivity can be `RT`, `RESD`,
-`RDEP`, or `AT90`. Even within a single vendor's files, different tool
-runs use different mnemonics depending on the sensor configuration.
-Engineers often script their pipelines to expect one format, then
-receive another. In one completions project, a customer had six
-different formats for rate of penetration: `ROP`, `ROP5S`,
-`ROP_1FT`, `RateOfPen`, `DRATE`, and
-`ROP_AVG`. Each was sampled differently.
-Each had different units. No file declared the unit in metadata. This
-makes parsing automatic logs impossible without a lookup table, and it
-makes machine learning models brittle---failing silently when expected
-fields are missing or mislabeled.
+Even structured systems like SAP and ArcGIS pose challenges. SAP holds maintenance records, equipment hierarchies, and cost data, but key fields like `equipment_id` and `functional_location` are inconsistently used. Work orders may refer to assets that no longer exist in the active hierarchy. Spatial data in ArcGIS is stored in shapefiles or geodatabases with variable coordinate systems, making joins to well locations difficult. In some cases, pipeline centerlines and valve locations were stored in different projections---NAD83 and WGS84---causing visual misalignment of over 150 meters.
 
-Sensor data brings volume and velocity, but not clarity. SCADA systems
-may log pressure, flow, and temperature every second, but rarely use
-consistent tags or units. One gathering system reported flow in
-`bbl/h`, another in `Mcf/d`, and a third in `L/min`.
-Worse, the sensors reset when equipment is swapped, and the tags get
-reused. Time zones are often wrong. Timestamps can be stored as local
-time without daylight saving correction. Fiber-optic data is worse: a
-single DAS stage may generate 5--10 TB of raw data, sampled at
-millisecond resolution, with little annotation. Without reliable
-metadata---stage start and stop times, tool depths, surface
-pressure---the signal is uninterpretable.
+These issues are not solved by volume or compute. They are problems of structure. Operational systems were built for control, not for analytics. They were designed to run safely and meet regulatory requirements --- not to share data or support modeling. Integration fails when identity, time, depth, and measurement are not aligned. Averages don't mean anything when the underlying joins are wrong.
 
-Unstructured data remains a blind spot. Daily drilling reports (DDRs),
-completion job summaries, pump logs, and engineering memos often live as
-PDFs, scanned images, or Excel files with inconsistent formatting. These
-documents contain high-value insights --- delays, failures, changes in
-plan --- but are rarely integrated into data platforms. NLP tools can
-extract text, but without reference tables or standardized templates,
-it's hard to map what you find. In one project, over 30 percent of pump
-downtime events were documented only in daily reports, not in the
-historian or the maintenance system.
+Handling this requires consistent standards across all layers. Assign a synthetic universal ID to each well, with stable mappings to all known aliases. Standardize depth to a fixed datum and label all measurements by reference point.
 
-Even structured systems like SAP and ArcGIS pose challenges. SAP holds
-maintenance records, equipment hierarchies, and cost data, but key
-fields like `equipment_id` and
-`functional_location` are inconsistently
-used. Work orders may refer to assets that no longer exist in the active
-hierarchy. Spatial data in ArcGIS is stored in shapefiles or
-geodatabases with variable coordinate systems, making joins to well
-locations difficult. In some cases, pipeline centerlines and valve
-locations were stored in different projections---NAD83 and
-WGS84---causing visual misalignment of over 150 meters.
-
-These issues are not solved by volume or compute. They are problems of
-structure. Operational systems were built for control, not for
-analytics. They were designed to run safely and meet regulatory
-requirements --- not to share data or support modeling. Integration
-fails when identity, time, depth, and measurement are not aligned.
-Averages don't mean anything when the underlying joins are wrong.
-
-Handling this requires consistent standards across all layers. Assign a
-synthetic universal ID to each well, with stable mappings to all known
-aliases. Standardize depth to a fixed datum and label all measurements
-by reference point.
-
-Handling these issues requires deliberate structure. Define standard
-identifiers. Normalize depths to a consistent datum --- usually MSL.
-Align time series using trusted event anchors. Maintain mapping tables
-for mnemonics and units. Extract metadata as a first step, not an
-afterthought. Data engineering in oil and gas is a process that requires
-building a scaffolding to enable repeatable analysis.
-::::::::By [Kyle Jones](https://medium.com/@kyle-t-jones) on
-[June 27, 2025](https://medium.com/p/c22478fd5e67).
-
-[Canonical
-link](https://medium.com/@kyle-t-jones/why-data-engineering-in-oil-and-gas-is-hard-c22478fd5e67)
-
-Exported from [Medium](https://medium.com) on November 10, 2025.
+Handling these issues requires deliberate structure. Define standard identifiers. Normalize depths to a consistent datum --- usually MSL. Align time series using trusted event anchors. Maintain mapping tables for mnemonics and units. Extract metadata as a first step, not an afterthought. Data engineering in oil and gas is a process that requires building a scaffolding to enable repeatable analysis.
