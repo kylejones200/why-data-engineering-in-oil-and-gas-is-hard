@@ -1,0 +1,7 @@
+[project]
+name = "why-data-engineering-in-oil-and-gas-is-hard"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "spacy>=3.8.14",
+]
