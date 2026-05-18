@@ -14,7 +14,7 @@ def main():
             spacy.displacy.render(doc, style="ent", jupyter=True)
 
 
-def main() -> None:
+def main_alt() -> None:
     main()
 
 
